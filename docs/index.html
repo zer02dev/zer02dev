@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Filip Dzitko - zer02dev</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  :root {
+    --bg:       #0a0e17;
+    --bg2:      #0f1520;
+    --blue:     #1e6fff;
+    --blue-dim: #0d3d8a;
+    --blue-bright: #4d9fff;
+    --white:    #e8edf5;
+    --dim:      #4a5568;
+    --muted:    #6b7a99;
+    --green:    #22c55e;
+    --yellow:   #f0b429;
+    --red:      #ef4444;
+    --cyan:     #38bdf8;
+    --font:     'SF Mono', 'Fira Code', 'Fira Mono', 'Cascadia Code', 'Consolas', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--white);
+    font-family: var(--font);
+    font-size: 13px;
+    height: 100%;
+    line-height: 1.6;
+  }
+
+  #terminal {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0;
+    height: 100dvh;
+    max-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── top bar ── */
+  #topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--blue-dim);
+    padding: 8px 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #febc2e; }
+  .dot-g { background: #28c840; }
+  #topbar-title {
+    margin-left: 12px;
+    color: var(--muted);
+    font-size: 12px;
+    flex: 1;
+    text-align: center;
+  }
+
+  /* ── output area ── */
+  #output {
+    flex: 1;
+    padding: 20px 24px 8px;
+    overflow-y: auto;
+  }
+
+  /* ── input line ── */
+  #input-line {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 10px 24px 16px;
+    border-top: 1px solid var(--blue-dim);
+    background: var(--bg);
+    position: sticky;
+    bottom: 0;
+  }
+
+  #prompt {
+    white-space: nowrap;
+    user-select: none;
+  }
+  #prompt .p-user  { color: var(--blue-bright); }
+  #prompt .p-at    { color: var(--dim); }
+  #prompt .p-host  { color: var(--blue); }
+  #prompt .p-colon { color: var(--dim); }
+  #prompt .p-path  { color: var(--cyan); }
+  #prompt .p-dollar{ color: var(--dim); margin-right: 8px; }
+
+  #cmd-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--white);
+    font-family: var(--font);
+    font-size: 13px;
+    caret-color: var(--blue-bright);
+  }
+
+  /* ── output blocks ── */
+  .out-block { margin-bottom: 4px; }
+
+  .out-cmd {
+    display: flex;
+    gap: 0;
+    margin-bottom: 2px;
+  }
+
+  .out-result {
+    padding-left: 0;
+    margin-bottom: 14px;
+    color: var(--white);
+  }
+
+  /* ls output */
+  .ls-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 24px;
+    margin: 4px 0;
+  }
+  .ls-dir  { color: var(--blue-bright); cursor: pointer; }
+  .ls-dir:hover { text-decoration: underline; }
+  .ls-file { color: var(--white); }
+  .ls-link { color: var(--cyan); cursor: pointer; }
+  .ls-link:hover { text-decoration: underline; }
+  .ls-perm { color: var(--dim); }
+
+  /* markdown render */
+  .md-render h1 { color: var(--blue-bright); font-size: 15px; margin-bottom: 8px; border-bottom: 1px solid var(--blue-dim); padding-bottom: 4px; }
+  .md-render h2 { color: var(--cyan); font-size: 13px; margin: 12px 0 4px; }
+  .md-render h3 { color: var(--muted); font-size: 13px; margin: 8px 0 2px; }
+  .md-render p  { margin-bottom: 6px; }
+  .md-render ul { padding-left: 16px; margin-bottom: 6px; }
+  .md-render li { margin-bottom: 2px; }
+  .md-render strong { color: var(--yellow); font-weight: 600; }
+  .md-render a  { color: var(--blue-bright); text-decoration: none; }
+  .md-render a:hover { text-decoration: underline; }
+  .md-render code { background: var(--bg2); color: var(--green); padding: 1px 5px; border-radius: 3px; font-family: var(--font); }
+  .md-render pre  { background: var(--bg2); border: 1px solid var(--blue-dim); padding: 10px 14px; border-radius: 4px; margin: 8px 0; overflow-x: auto; }
+  .md-render pre code { background: none; padding: 0; color: var(--white); }
+  .md-render blockquote { border-left: 3px solid var(--blue-dim); padding-left: 10px; color: var(--muted); margin: 6px 0; }
+  .md-render hr { border: none; border-top: 1px solid var(--blue-dim); margin: 10px 0; }
+
+  /* misc */
+  .err   { color: var(--red); }
+  .ok    { color: var(--green); }
+  .info  { color: var(--muted); }
+  .tag   { background: var(--blue-dim); color: var(--blue-bright); padding: 1px 6px; border-radius: 3px; font-size: 11px; margin-right: 4px; }
+  .status-active   { color: var(--green); }
+  .status-progress { color: var(--yellow); }
+  .status-ongoing  { color: var(--cyan); }
+
+  .hint {
+    color: var(--dim);
+    font-size: 11px;
+    margin-top: 2px;
+  }
+
+  /* neofetch */
+  .neofetch {
+    display: flex;
+    gap: 24px;
+    margin: 4px 0;
+  }
+  .neo-logo {
+    color: var(--blue);
+    line-height: 1.3;
+    white-space: pre;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  .neo-info { flex: 1; }
+  .neo-row  { display: flex; gap: 8px; margin-bottom: 2px; }
+  .neo-key  { color: var(--blue-bright); min-width: 100px; }
+  .neo-val  { color: var(--white); }
+  .neo-colors { display: flex; gap: 4px; margin-top: 8px; }
+  .neo-color-block { width: 14px; height: 14px; border-radius: 2px; }
+
+  /* help table */
+  .help-table { border-collapse: collapse; }
+  .help-table td { padding: 1px 16px 1px 0; vertical-align: top; }
+  .help-table .hcmd { color: var(--blue-bright); }
+  .help-table .hdesc { color: var(--muted); }
+  .help-section { color: var(--cyan); margin: 8px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--blue-dim); border-radius: 3px; }
+
+  /* selection */
+  ::selection { background: var(--blue-dim); color: var(--white); }
+</style>
+</head>
+<body>
+
+<div id="terminal">
+  <div id="topbar">
+    <div class="dot dot-r"></div>
+    <div class="dot dot-y"></div>
+    <div class="dot dot-g"></div>
+    <div id="topbar-title">filip@site — bash — 860×480</div>
+  </div>
+
+  <div id="output"></div>
+
+  <div id="input-line">
+    <div id="prompt">
+      <span class="p-user">filip</span><span class="p-at">@</span><span class="p-host">site</span><span class="p-colon">:</span><span class="p-path" id="prompt-path">~</span><span class="p-dollar">$</span>
+    </div>
+    <input id="cmd-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus />
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+const EGG_HELP = [
+  ['sl', 'tiny steam locomotive in ascii'],
+  ['matrix', 'fake matrix rain dump'],
+  ['fortune', 'random one-liner quote'],
+  ['cowsay [text]', 'cow says your message'],
+  ['hack', 'dramatic fake hacking sequence'],
+  ['xyzzy', 'old-school adventure reference']
+];
+
+/* ── filesystem ── */
+const FS = {
+  '~': {
+    type: 'dir',
+    children: {
+      'about.md':     { type: 'file', src: 'content/about.md' },
+      'contact.md':   { type: 'file', src: 'content/contact.md' },
+      'projects':     {
+        type: 'dir',
+        children: {
+          'bimmerdaten.md':   { type: 'file', src: 'content/projects/bimmerdaten.md' }
+        }
+      }
+    }
+  }
+};
+
+/* ── state ── */
+let cwd = '~';
+const HISTORY_KEY = 'terminal_history_v1';
+let history = [];
+let histIdx = -1;
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      history = parsed.filter(cmd => typeof cmd === 'string');
+    }
+  } catch (_) {
+    history = [];
+  }
+}
+
+function saveHistory() {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 200)));
+  } catch (_) {
+    // Ignore storage errors (private mode, quota limits, etc.).
+  }
+}
+
+/* ── path helpers ── */
+function resolvePath(target) {
+  if (!target || target === '~') return '~';
+  if (target === '..') {
+    if (cwd === '~') return '~';
+    const parts = cwd.split('/');
+    parts.pop();
+    return parts.join('/') || '~';
+  }
+  if (target.startsWith('~/')) return target;
+  return cwd === '~' ? '~/' + target : cwd + '/' + target;
+}
+
+function getNode(path) {
+  if (path === '~') return FS['~'];
+  const parts = path.replace('~/', '').split('/').filter(Boolean);
+  let node = FS['~'];
+  for (const p of parts) {
+    if (!node.children || !node.children[p]) return null;
+    node = node.children[p];
+  }
+  return node;
+}
+
+function promptPath() {
+  return cwd === '~' ? '~' : cwd;
+}
+
+function updatePrompt() {
+  $('prompt-path').textContent = promptPath();
+  $('topbar-title').textContent = `filip@site — ${promptPath()} — bash`;
+}
+
+/* ── output helpers ── */
+function print(html) {
+  const out = $('output');
+  const div = document.createElement('div');
+  div.className = 'out-result';
+  div.innerHTML = html;
+  out.appendChild(div);
+  scrollDown();
+}
+
+function printCmd(cmdText) {
+  const out = $('output');
+  const div = document.createElement('div');
+  div.className = 'out-cmd';
+  div.innerHTML = `<div id="prompt" style="white-space:nowrap;user-select:none;margin-right:8px;">` +
+    `<span class="p-user">filip</span><span class="p-at">@</span><span class="p-host">site</span>` +
+    `<span class="p-colon">:</span><span class="p-path">${promptPath()}</span>` +
+    `<span class="p-dollar">$</span></div>` +
+    `<span style="color:var(--white);margin-left:8px;">${escHtml(cmdText)}</span>`;
+  out.appendChild(div);
+}
+
+function scrollDown() {
+  const out = $('output');
+  requestAnimationFrame(() => {
+    out.scrollTop = out.scrollHeight;
+  });
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function stripFrontmatter(md) {
+  return md.replace(/^---[\s\S]*?---\n?/, '').trim();
+}
+
+function parseFrontmatter(md) {
+  const match = md.match(/^---\n([\s\S]*?)\n---/);
+  if (!match) return {};
+  const obj = {};
+  match[1].split('\n').forEach(line => {
+    const [k, ...v] = line.split(':');
+    if (k) obj[k.trim()] = v.join(':').trim();
+  });
+  return obj;
+}
+
+/* ── commands ── */
+const COMMANDS = {
+
+  help(args) {
+    if (args[0] === '--eggs') {
+      let rows = '';
+      EGG_HELP.forEach(([cmd, desc]) => {
+        rows += `<tr><td class="hcmd">${escHtml(cmd)}</td><td class="hdesc">${escHtml(desc)}</td></tr>`;
+      });
+      print(`
+<div class="help-section">easter eggs</div>
+<table class="help-table">${rows}</table>
+<div class="hint" style="margin-top:8px;">tip: try commands directly, e.g. <span style="color:var(--blue-bright)">cowsay hello</span></div>
+`);
+      return;
+    }
+
+    print(`
+<div class="help-section">navigation</div>
+<table class="help-table">
+  <tr><td class="hcmd">ls [path]</td><td class="hdesc">list files and directories</td></tr>
+  <tr><td class="hcmd">cd &lt;path&gt;</td><td class="hdesc">change directory (cd .., cd ~, cd projects)</td></tr>
+  <tr><td class="hcmd">pwd</td><td class="hdesc">print current directory</td></tr>
+</table>
+<div class="help-section">content</div>
+<table class="help-table">
+  <tr><td class="hcmd">cat &lt;file&gt;</td><td class="hdesc">display file contents</td></tr>
+  <tr><td class="hcmd">open &lt;file|url&gt;</td><td class="hdesc">open link or file in browser</td></tr>
+</table>
+<div class="help-section">terminal</div>
+<table class="help-table">
+  <tr><td class="hcmd">help --eggs</td><td class="hdesc">show funny hidden commands</td></tr>
+  <tr><td class="hcmd">clear</td><td class="hdesc">clear the terminal</td></tr>
+  <tr><td class="hcmd">history</td><td class="hdesc">show command history</td></tr>
+  <tr><td class="hcmd">echo &lt;text&gt;</td><td class="hdesc">print text</td></tr>
+  <tr><td class="hcmd">neofetch</td><td class="hdesc">system info</td></tr>
+  <tr><td class="hcmd">whoami</td><td class="hdesc">current user</td></tr>
+  <tr><td class="hcmd">uname -a</td><td class="hdesc">system information</td></tr>
+  <tr><td class="hcmd">date</td><td class="hdesc">current date and time</td></tr>
+</table>
+<div class="hint" style="margin-top:8px;">hidden fun: <span style="color:var(--blue-bright)">help --eggs</span></div>
+<div class="hint" style="margin-top:8px;">tip: use ↑ / ↓ to navigate history · tab to autocomplete</div>
+`);
+  },
+
+  ls(args) {
+    const target = args[0] ? resolvePath(args[0]) : cwd;
+    const node = getNode(target);
+    if (!node) { print(`<span class="err">ls: ${escHtml(args[0])}: No such file or directory</span>`); return; }
+    if (node.type === 'file') { print(`<span class="ls-file">${escHtml(target.split('/').pop())}</span>`); return; }
+
+    const entries = Object.entries(node.children);
+    if (entries.length === 0) { print('<span class="info">empty directory</span>'); return; }
+
+    let html = '<div class="ls-grid">';
+    entries.sort((a,b) => {
+      if (a[1].type === b[1].type) return a[0].localeCompare(b[0]);
+      return a[1].type === 'dir' ? -1 : 1;
+    }).forEach(([name, n]) => {
+      if (n.type === 'dir') {
+        html += `<span class="ls-dir" onclick="runCmd('cd ${name}')">${name}/</span>`;
+      } else {
+        html += `<span class="ls-file" onclick="runCmd('cat ${name}')" style="cursor:pointer;opacity:.85">${name}</span>`;
+      }
+    });
+    html += '</div>';
+    print(html);
+  },
+
+  cd(args) {
+    const target = args[0] || '~';
+    const resolved = resolvePath(target);
+    const node = getNode(resolved);
+    if (!node) { print(`<span class="err">cd: ${escHtml(target)}: No such file or directory</span>`); return; }
+    if (node.type !== 'dir') { print(`<span class="err">cd: ${escHtml(target)}: Not a directory</span>`); return; }
+    cwd = resolved;
+    updatePrompt();
+  },
+
+  pwd(args) {
+    print(`<span style="color:var(--cyan)">${promptPath().replace('~', '/home/filip')}</span>`);
+  },
+
+  cat(args) {
+    if (!args[0]) { print('<span class="err">cat: missing file operand</span>'); return; }
+    const target = resolvePath(args[0]);
+    const node = getNode(target);
+    if (!node) { print(`<span class="err">cat: ${escHtml(args[0])}: No such file or directory</span>`); return; }
+    if (node.type === 'dir') { print(`<span class="err">cat: ${escHtml(args[0])}: Is a directory</span>`); return; }
+
+    fetch(node.src)
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(md => {
+        const fm = parseFrontmatter(md);
+        const body = stripFrontmatter(md);
+        let html = '<div class="md-render">';
+        if (fm.tags) {
+          html += '<div style="margin-bottom:8px;">';
+          fm.tags.split(' ').forEach(t => { html += `<span class="tag">${escHtml(t)}</span>`; });
+          html += '</div>';
+        }
+        if (fm.status) {
+          const cls = fm.status === 'active' ? 'status-active' : fm.status === 'in-progress' ? 'status-progress' : 'status-ongoing';
+          html += `<div style="margin-bottom:8px;">status: <span class="${cls}">${escHtml(fm.status)}</span></div>`;
+        }
+        if (fm.repo) {
+          html += `<div style="margin-bottom:8px;">repo: <a href="${escHtml(fm.repo)}" class="ls-link">${escHtml(fm.repo)}</a></div>`;
+        }
+        html += marked.parse(body);
+        html += '</div>';
+        print(html);
+      })
+      .catch(() => {
+        print(`<span class="err">cat: ${escHtml(args[0])}: Error reading file</span>`);
+      });
+  },
+
+  open(args) {
+    if (!args[0]) { print('<span class="err">open: missing argument</span>'); return; }
+    let url = args[0];
+    if (!url.startsWith('http')) {
+      const target = resolvePath(args[0]);
+      const node = getNode(target);
+      if (node && node.type === 'file') {
+        runCmd('cat ' + args[0]);
+        return;
+      }
+      url = 'https://' + url;
+    }
+    window.open(url, '_blank');
+    print(`<span class="ok">opening ${escHtml(url)}...</span>`);
+  },
+
+  clear(args) {
+    $('output').innerHTML = '';
+  },
+
+  history(args) {
+    if (history.length === 0) { print('<span class="info">no commands in history</span>'); return; }
+    let html = '';
+    history.forEach((cmd, i) => {
+      html += `<div><span class="muted" style="color:var(--dim);min-width:28px;display:inline-block;"> ${i+1}</span>  ${escHtml(cmd)}</div>`;
+    });
+    print(html);
+  },
+
+  echo(args) {
+    print(escHtml(args.join(' ')));
+  },
+
+  whoami(args) {
+    print('<span style="color:var(--blue-bright)">filip</span>');
+  },
+
+  date(args) {
+    print(`<span style="color:var(--cyan)">${new Date().toString()}</span>`);
+  },
+
+  'uname'(args) {
+    if (args.includes('-a')) {
+      print('<span class="info">Linux site 6.9.0-arch1 #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux</span>');
+    } else {
+      print('<span class="info">Linux</span>');
+    }
+  },
+
+  neofetch(args) {
+    print(`
+<div class="neofetch">
+  <div class="neo-logo">    ___
+ ██████╗ ███╗   ███╗██╗    ██╗
+██╔══██╗████╗ ████║██║    ██║
+██████╔╝██╔████╔██║██║ █╗ ██║
+██╔══██╗██║╚██╔╝██║██║███╗██║
+██████╔╝██║ ╚═╝ ██║╚███╔███╔╝
+╚═════╝ ╚═╝     ╚═╝ ╚══╝╚══╝</div>
+  <div class="neo-info">
+    <div class="neo-row"><span class="neo-key">user@host</span><span class="neo-val" style="color:var(--blue-bright)">filip@site</span></div>
+    <div class="neo-row"><span class="neo-key">---------</span><span class="neo-val" style="color:var(--dim)">----------</span></div>
+    <div class="neo-row"><span class="neo-key">name</span><span class="neo-val">Filip Dzitko</span></div>
+    <div class="neo-row"><span class="neo-key">location</span><span class="neo-val">Łódź, Poland</span></div>
+    <div class="neo-row"><span class="neo-key">study</span><span class="neo-val">Univ. Łódź — Data & Business</span></div>
+    <div class="neo-row"><span class="neo-key">racing</span><span class="neo-val" style="color:var(--yellow)">Vice Polish Champion — Autocross</span></div>
+    <div class="neo-row"><span class="neo-key">shell</span><span class="neo-val">bash 5.2</span></div>
+    <div class="neo-row"><span class="neo-key">os</span><span class="neo-val">Arch Linux x86_64</span></div>
+    <div class="neo-row"><span class="neo-key">editor</span><span class="neo-val">nvim</span></div>
+    <div class="neo-row"><span class="neo-key">uptime</span><span class="neo-val">way too long</span></div>
+    <div class="neo-colors">
+      <div class="neo-color-block" style="background:#0a0e17;border:1px solid var(--dim)"></div>
+      <div class="neo-color-block" style="background:var(--blue-dim)"></div>
+      <div class="neo-color-block" style="background:var(--blue)"></div>
+      <div class="neo-color-block" style="background:var(--blue-bright)"></div>
+      <div class="neo-color-block" style="background:var(--cyan)"></div>
+      <div class="neo-color-block" style="background:var(--white)"></div>
+    </div>
+  </div>
+</div>`);
+  },
+
+  man(args) {
+    if (!args[0]) { print('<span class="err">what manual page do you want?</span>'); return; }
+    print(`<span class="info">No manual entry for ${escHtml(args[0])}. Try <span style="color:var(--blue-bright)">help</span>.</span>`);
+  },
+
+  sudo(args) {
+    print('<span class="err">filip is not in the sudoers file. This incident will be reported.</span>');
+  },
+
+  rm(args) {
+    print('<span class="err">rm: permission denied — this is a read-only filesystem</span>');
+  },
+
+  vim(args) {
+    if (!args[0]) { print('<span class="err">vim: no file specified</span>'); return; }
+    print('<span class="err">vim: write access disabled. use cat to read.</span>');
+  },
+
+  nano: function(args) { COMMANDS.vim(args); },
+
+  git(args) {
+    if (!args[0]) { print('<span class="info">usage: git clone &lt;repo&gt; | git &lt;command&gt;</span>'); return; }
+    if (args[0] === 'clone') {
+      print(`<span class="ok">Cloning into '${escHtml(args[1] || 'repo')}'...</span>\n<span class="ok">done.</span>`);
+      return;
+    }
+    print(`<span class="info">git: '${escHtml(args[0])}' is not a git command on this host</span>`);
+  },
+
+  ssh(args) {
+    print('<span class="err">ssh: connection refused — this is a static site, not a real server</span>');
+  },
+
+  ping(args) {
+    if (!args[0]) { print('<span class="err">ping: missing host</span>'); return; }
+    print(`PING ${escHtml(args[0])}: 56 data bytes<br><span class="info">64 bytes from ${escHtml(args[0])}: icmp_seq=0 ttl=64 time=42.0 ms</span><br><span class="muted" style="color:var(--dim)">^C</span>`);
+  },
+
+  sl(args) {
+    print(`<pre style="color:var(--cyan)">
+      ====        ________                ___________
+  _D _|  |_______/        \\__I_I_____===__|_________|
+   |(_)---  |   H\\________/ |   |        =|___ ___|      _________________
+   /     |  |   H  |  |     |   |         ||_| |_||     _|                \\_____A
+  |      |  |   H  |__--------------------| [___] |   =|                        |
+  | ________|___H__/__|_____/[][]~\\_______|       |   -|                        |
+  |/ |   |-----------I_____I [][] []  D   |=======|____|________________________|_
+__/ =| o |=-~~\\  /~~\\  /~~\\  /~~\\ ____Y___________|__|________________________|_
+ |/-=|___|=O=====O=====O=====O   |_____/~\\___/        |_|__________________|_
+  \\_/      \\__/  \\__/  \\__/  \\__/      \\_/               |_|                |_|
+</pre>`);
+  },
+
+  matrix(args) {
+    const lines = Array.from({ length: 14 }, () => {
+      const chars = '01abcdefghijklmnopqrstuvwxyz#$%&@'.split('');
+      return Array.from({ length: 54 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    });
+    print(`<pre style="color:var(--green)">${escHtml(lines.join('\n'))}</pre><div class="hint">wake up, filip...</div>`);
+  },
+
+  fortune(args) {
+    const quotes = [
+      'Ship small. Learn fast.',
+      'Race line first, throttle second.',
+      'Perfect is the enemy of shipped.',
+      'Debugging is just detective work with better snacks.',
+      'If it compiles, celebrate quietly.'
+    ];
+    const q = quotes[Math.floor(Math.random() * quotes.length)];
+    print(`<span class="info">${escHtml(q)}</span>`);
+  },
+
+  cowsay(args) {
+    const msg = args.join(' ') || 'moo';
+    const top = ' ' + '_'.repeat(Math.max(3, msg.length + 2));
+    const mid = `< ${escHtml(msg)} >`;
+    const bot = ' ' + '-'.repeat(Math.max(3, msg.length + 2));
+    print(`<pre style="color:var(--yellow)">${top}\n${mid}\n${bot}
+        \\   ^__^
+         \\  (oo)\\_______
+            (__)\\       )\\/\\
+                ||----w |
+                ||     ||</pre>`);
+  },
+
+  hack(args) {
+    print(`<span class="info">[init] loading exploit modules...</span>`);
+    setTimeout(() => print(`<span class="info">[scan] discovering open ports... 22 80 443</span>`), 180);
+    setTimeout(() => print(`<span class="info">[inject] bypassing firewall...</span>`), 360);
+    setTimeout(() => print(`<span class="ok">[ok] access granted (just kidding)</span>`), 540);
+  },
+
+  xyzzy(args) {
+    print('<span class="info">A hollow voice says: "Fool."</span>');
+  },
+
+};
+
+/* ── tab autocomplete ── */
+function autocomplete(partial) {
+  if (!partial) return null;
+  const parts = partial.split(' ');
+  if (parts.length === 1) {
+    const matches = Object.keys(COMMANDS).filter(c => c.startsWith(parts[0]));
+    if (matches.length === 1) return matches[0] + ' ';
+    if (matches.length > 1) { print(matches.join('  ')); return null; }
+    return null;
+  }
+  const lastPart = parts[parts.length - 1];
+  const node = getNode(cwd);
+  if (!node || !node.children) return null;
+  const matches = Object.keys(node.children).filter(n => n.startsWith(lastPart));
+  if (matches.length === 1) {
+    parts[parts.length - 1] = matches[0] + (node.children[matches[0]].type === 'dir' ? '/' : ' ');
+    return parts.join(' ');
+  }
+  if (matches.length > 1) { print(matches.join('  ')); return null; }
+  return null;
+}
+
+/* ── run command ── */
+function runCmd(raw) {
+  const input = raw.trim();
+  if (!input) return;
+
+  printCmd(input);
+  history.unshift(input);
+  saveHistory();
+  histIdx = -1;
+
+  const parts = input.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+  const cmd = parts[0].toLowerCase();
+  const args = parts.slice(1).map(a => a.replace(/^["']|["']$/g, ''));
+
+  if (COMMANDS[cmd]) {
+    COMMANDS[cmd](args);
+  } else {
+    print(`<span class="err">bash: ${escHtml(cmd)}: command not found</span><div class="hint">type <span style="color:var(--blue-bright)">help</span> for available commands</div>`);
+  }
+
+  $('cmd-input').value = '';
+  scrollDown();
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' });
+}
+
+/* ── keyboard ── */
+$('cmd-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    runCmd($('cmd-input').value);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (histIdx < history.length - 1) {
+      histIdx++;
+      $('cmd-input').value = history[histIdx];
+    }
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (histIdx > 0) {
+      histIdx--;
+      $('cmd-input').value = history[histIdx];
+    } else {
+      histIdx = -1;
+      $('cmd-input').value = '';
+    }
+  } else if (e.key === 'Tab') {
+    e.preventDefault();
+    const completed = autocomplete($('cmd-input').value);
+    if (completed) $('cmd-input').value = completed;
+  } else if (e.key === 'l' && e.ctrlKey) {
+    e.preventDefault();
+    COMMANDS.clear();
+  } else if (e.key === 'c' && e.ctrlKey) {
+    e.preventDefault();
+    printCmd($('cmd-input').value + '^C');
+    $('cmd-input').value = '';
+  }
+});
+
+/* always focus input on click */
+document.addEventListener('click', () => $('cmd-input').focus());
+
+/* ── boot ── */
+function boot() {
+  loadHistory();
+  print(`<div style="color:var(--blue-bright);margin-bottom:2px;font-size:14px;font-weight:600;letter-spacing:1px;">zer02dev.FilipDzitko</div>
+<div style="color:var(--muted);margin-bottom:12px;">developer · racing driver · tinkerer</div>
+<div style="color:var(--dim);margin-bottom:4px;">────────────────────────────────────────</div>
+<div style="margin-bottom:2px;">type <span style="color:var(--blue-bright)">help</span> for available commands</div>
+<div style="margin-bottom:2px;">type <span style="color:var(--blue-bright)">ls</span> to explore, <span style="color:var(--blue-bright)">neofetch</span> for system info</div>
+<div style="color:var(--dim);margin-top:8px;">────────────────────────────────────────</div>`);
+  $('cmd-input').focus();
+}
+
+boot();
+</script>
+</body>
+</html>
